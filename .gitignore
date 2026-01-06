@@ -1,0 +1,10 @@
+#
+# Main Executable
+pokedexcli
+
+# Configuration settings
+.env
+
+# MacOS Stuff
+.DS_Store
+
