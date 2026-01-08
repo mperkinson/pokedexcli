@@ -1,6 +1,6 @@
 #
-# Main Executable
 pokedexcli
+repl.log
 
 # Configuration settings
 .env
