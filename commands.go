@@ -1,33 +1,43 @@
 package main
 
 import (
+	"errors"
 	"fmt"
-	"log"
 	"os"
 )
 
 type cliCommand struct {
-	name        string
-	description string
-	callback    func(*config) error
+	name          string
+	description   string
+	callback      func(*config) error
+	configuration *config
 }
 
 func getCommands(cfg *config) map[string]cliCommand {
 	return map[string]cliCommand{
 		"exit": {
-			name:        "exit",
-			description: "Exit the Pokedex",
-			callback:    commandExit,
+			name:          "exit",
+			description:   "Exit the Pokedex",
+			callback:      commandExit,
+			configuration: cfg,
 		},
 		"help": {
-			name:        "help",
-			description: "Displays a help message",
-			callback:    commandHelp,
+			name:          "help",
+			description:   "Displays a help message",
+			callback:      commandHelp,
+			configuration: cfg,
 		},
 		"map": {
-			name:        "map",
-			description: "Displays location areas",
-			callback:    commandMap,
+			name:          "map",
+			description:   "Displays next page of location areas",
+			callback:      commandMap,
+			configuration: cfg,
+		},
+		"mapb": {
+			name:          "mapb",
+			description:   "Displays previous page of location areas",
+			callback:      commandMapb,
+			configuration: cfg,
 		},
 	}
 }
@@ -48,13 +58,36 @@ func commandHelp(cfg *config) error {
 }
 
 func commandMap(cfg *config) error {
-	resp, err := cfg.pokeapiClient.ListLocationAreas()
+	resp, err := cfg.pokeapiClient.ListLocationAreas(cfg.nextLocationURL)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	for _, area := range resp.Results {
 		fmt.Println(area.Name)
 	}
+
+	cfg.prevLocationURL = resp.Previous
+	cfg.nextLocationURL = resp.Next
+
+	return nil
+}
+
+func commandMapb(cfg *config) error {
+	if cfg.prevLocationURL == nil {
+		return errors.New("no previous page to return to")
+	}
+	resp, err := cfg.pokeapiClient.ListLocationAreas(cfg.prevLocationURL)
+	if err != nil {
+		return err
+	}
+
+	for _, area := range resp.Results {
+		fmt.Println(area.Name)
+	}
+
+	cfg.prevLocationURL = resp.Previous
+	cfg.nextLocationURL = resp.Next
+
 	return nil
 }
