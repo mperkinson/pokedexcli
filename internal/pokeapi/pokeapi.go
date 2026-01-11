@@ -7,16 +7,20 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/mperkinson/pokedexcli/internal/pokecache"
 )
 
 const baseURL = "https://pokeapi.co/api/v2/"
 
 type Client struct {
+	cache      *pokecache.Cache
 	httpClient http.Client
 }
 
-func NewClient() Client {
+func NewClient(interval time.Duration) Client {
 	return Client{
+		cache: pokecache.NewCache(interval),
 		httpClient: http.Client{
 			Timeout: time.Minute,
 		},
@@ -30,6 +34,20 @@ func (c *Client) ListLocationAreas(pageURL *string) (LocationAreaResp, error) {
 	if pageURL != nil {
 		fullURL = *pageURL
 	}
+
+	data, ok := c.cache.Get(fullURL)
+	if ok {
+		fmt.Println("Cache hit!")
+		locationAreaResp := LocationAreaResp{}
+		err := json.Unmarshal(data, &locationAreaResp)
+		if err != nil {
+			return LocationAreaResp{}, err
+		}
+		return locationAreaResp, nil
+
+	}
+
+	fmt.Println("Cache miss!")
 
 	req, err := http.NewRequest("GET", fullURL, nil)
 	if err != nil {
@@ -51,7 +69,7 @@ func (c *Client) ListLocationAreas(pageURL *string) (LocationAreaResp, error) {
 		return LocationAreaResp{}, fmt.Errorf("bad status code: %v", resp.StatusCode)
 	}
 
-	data, err := io.ReadAll(resp.Body)
+	data, err = io.ReadAll(resp.Body)
 	if err != nil {
 		return LocationAreaResp{}, err
 	}
@@ -61,6 +79,8 @@ func (c *Client) ListLocationAreas(pageURL *string) (LocationAreaResp, error) {
 	if err != nil {
 		return LocationAreaResp{}, err
 	}
+
+	c.cache.Add(fullURL, data)
 
 	return locationAreaResp, nil
 }
