@@ -9,7 +9,7 @@ import (
 type cliCommand struct {
 	name          string
 	description   string
-	callback      func(*config) error
+	callback      func(*config, ...string) error
 	configuration *config
 }
 
@@ -39,16 +39,22 @@ func getCommands(cfg *config) map[string]cliCommand {
 			callback:      commandMapb,
 			configuration: cfg,
 		},
+		"explore": {
+			name:          "explore {location area}",
+			description:   "Displays Pokemon found in a location area",
+			callback:      commandExplore,
+			configuration: cfg,
+		},
 	}
 }
 
-func commandExit(cfg *config) error {
+func commandExit(cfg *config, args ...string) error {
 	fmt.Println("Closing the Pokedex... Goodbye!")
 	os.Exit(0)
 	return nil
 }
 
-func commandHelp(cfg *config) error {
+func commandHelp(cfg *config, args ...string) error {
 	fmt.Printf("Welcome to the Pokedex!\n")
 	fmt.Printf("Usage:\n\n")
 	for _, c := range getCommands(cfg) {
@@ -57,7 +63,7 @@ func commandHelp(cfg *config) error {
 	return nil
 }
 
-func commandMap(cfg *config) error {
+func commandMap(cfg *config, args ...string) error {
 	resp, err := cfg.pokeapiClient.ListLocationAreas(cfg.nextLocationURL)
 	if err != nil {
 		return err
@@ -73,7 +79,7 @@ func commandMap(cfg *config) error {
 	return nil
 }
 
-func commandMapb(cfg *config) error {
+func commandMapb(cfg *config, args ...string) error {
 	if cfg.prevLocationURL == nil {
 		return errors.New("no previous page to return to")
 	}
@@ -88,6 +94,27 @@ func commandMapb(cfg *config) error {
 
 	cfg.prevLocationURL = resp.Previous
 	cfg.nextLocationURL = resp.Next
+
+	return nil
+}
+
+func commandExplore(cfg *config, args ...string) error {
+	if len(args) != 1 {
+		return errors.New("no location area provided")
+	}
+
+	locationAreaName := args[0]
+
+	resp, err := cfg.pokeapiClient.GetLocationArea(locationAreaName)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Exploring %s...\n", resp.Name)
+	fmt.Println("Found Pokemon:")
+	for _, pokemon := range resp.PokemonEncounters {
+		fmt.Printf(" - %s\n", pokemon.Pokemon.Name)
+	}
 
 	return nil
 }
